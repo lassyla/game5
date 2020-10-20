@@ -36,7 +36,7 @@ WalkMesh::WalkMesh(std::vector< glm::vec3 > const &vertices_, std::vector< glm::
 		float db = glm::dot(out, normals[tri.y]);
 		float dc = glm::dot(out, normals[tri.z]);
 
-		//assert(da > 0.1f && db > 0.1f && dc > 0.1f);
+		assert(da > 0.1f && db > 0.1f && dc > 0.1f);
 	}
 }
 
@@ -191,9 +191,8 @@ bool WalkMesh::cross_edge(WalkPoint const &start, WalkPoint *end_, glm::quat *ro
 	auto &rotation = *rotation_;
 
 	assert(start.weights.z == 0.0f); //*must* be on an edge.
-	glm::uvec2 edge = glm::uvec2(start.indices);
 
-	//check if 'edge' is a non-boundary edge:
+	//check if edge is a non-boundary edge:
 	auto f = next_vertex.find(glm::uvec2(start.indices.y, start.indices.x));
 	if (f != next_vertex.end()) {
 		//it is!

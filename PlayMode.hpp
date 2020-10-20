@@ -27,6 +27,12 @@ struct PlayMode : Mode {
 
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
+	
+	//stuff for scattering kernels
+	GLenum kernel_vertex_type = GL_TRIANGLES; 
+	GLuint kernel_vertex_start = 0; 
+	GLuint kernel_vertex_count = 0; 
+	Scene::Transform *kernel = nullptr;
 
 	//player info:
 	struct Player {

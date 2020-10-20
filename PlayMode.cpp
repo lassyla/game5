@@ -13,23 +13,23 @@
 
 #include <random>
 
-GLuint phonebank_meshes_for_lit_color_texture_program = 0;
-Load< MeshBuffer > phonebank_meshes(LoadTagDefault, []() -> MeshBuffer const * {
-	MeshBuffer const *ret = new MeshBuffer(data_path("phone-bank.pnct"));
-	phonebank_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
+GLuint corn_meshes_for_lit_color_texture_program = 0;
+Load< MeshBuffer > corn_meshes(LoadTagDefault, []() -> MeshBuffer const * {
+	MeshBuffer const *ret = new MeshBuffer(data_path("corn.pnct"));
+	corn_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
 	return ret;
 });
 
-Load< Scene > phonebank_scene(LoadTagDefault, []() -> Scene const * {
-	return new Scene(data_path("phone-bank.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
-		Mesh const &mesh = phonebank_meshes->lookup(mesh_name);
+Load< Scene > corn_scene(LoadTagDefault, []() -> Scene const * {
+	return new Scene(data_path("corn.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
+		Mesh const &mesh = corn_meshes->lookup(mesh_name);
 
 		scene.drawables.emplace_back(transform);
 		Scene::Drawable &drawable = scene.drawables.back();
 
 		drawable.pipeline = lit_color_texture_program_pipeline;
 
-		drawable.pipeline.vao = phonebank_meshes_for_lit_color_texture_program;
+		drawable.pipeline.vao = corn_meshes_for_lit_color_texture_program;
 		drawable.pipeline.type = mesh.type;
 		drawable.pipeline.start = mesh.start;
 		drawable.pipeline.count = mesh.count;
@@ -38,13 +38,24 @@ Load< Scene > phonebank_scene(LoadTagDefault, []() -> Scene const * {
 });
 
 WalkMesh const *walkmesh = nullptr;
-Load< WalkMeshes > phonebank_walkmeshes(LoadTagDefault, []() -> WalkMeshes const * {
-	WalkMeshes *ret = new WalkMeshes(data_path("phone-bank.w"));
+Load< WalkMeshes > corn_walkmeshes(LoadTagDefault, []() -> WalkMeshes const * {
+	WalkMeshes *ret = new WalkMeshes(data_path("corn.w"));
 	walkmesh = &ret->lookup("WalkMesh");
 	return ret;
 });
 
-PlayMode::PlayMode() : scene(*phonebank_scene) {
+PlayMode::PlayMode() : scene(*corn_scene) {
+	//save corn kernel data
+	for (auto &drawable : scene.drawables) {
+		if (drawable.transform->name == "Kernel") {
+			kernel = (drawable.transform);
+			kernel_vertex_type = drawable.pipeline.type; 
+			kernel_vertex_start = drawable.pipeline.start; 
+			kernel_vertex_count = drawable.pipeline.count; 
+		}
+	}
+	if (kernel == nullptr) throw std::runtime_error("No kernel transform found.");
+
 	//create a player transform:
 	scene.transforms.emplace_back();
 	player.transform = &scene.transforms.back();
@@ -112,6 +123,28 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		if (SDL_GetRelativeMouseMode() == SDL_FALSE) {
 			SDL_SetRelativeMouseMode(SDL_TRUE);
 			return true;
+		}
+		//drop some corn kernels
+		else {
+			for(int i = 0; i < 3; i++) {
+				Scene::Transform *new_kernel = new Scene::Transform; 
+				new_kernel->position = player.transform->position; 
+				new_kernel->position.x += .1f * (rand() % 10) - .05f;
+				new_kernel->position.y += .1f * (rand() % 10) - .05f; 
+				new_kernel->scale = glm::vec3(1.0f, 1.0f, 1.0f); 
+				new_kernel->rotation = glm::vec3(0.0f, 0.0f, 36.0f * (rand() % 10));
+
+				scene.drawables.emplace_back(new_kernel);
+
+				Scene::Drawable &drawable = scene.drawables.back();
+				drawable.pipeline = lit_color_texture_program_pipeline;
+				drawable.pipeline.vao = corn_meshes_for_lit_color_texture_program;
+				drawable.pipeline.type = kernel_vertex_type;
+				drawable.pipeline.start = kernel_vertex_start;
+				drawable.pipeline.count = kernel_vertex_count;
+			}
+			return true; 
+		
 		}
 	} else if (evt.type == SDL_MOUSEMOTION) {
 		if (SDL_GetRelativeMouseMode() == SDL_TRUE) {
@@ -195,6 +228,7 @@ void PlayMode::update(float elapsed) {
 				}
 			}
 		}
+					
 
 		if (remain != glm::vec3(0.0f)) {
 			std::cout << "NOTE: code used full iteration budget for walking." << std::endl;
@@ -237,11 +271,11 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	// TODO: consider using the Light(s) in the scene to do this
 	glUseProgram(lit_color_texture_program->program);
 	glUniform1i(lit_color_texture_program->LIGHT_TYPE_int, 1);
-	glUniform3fv(lit_color_texture_program->LIGHT_DIRECTION_vec3, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f,-1.0f)));
+	glUniform3fv(lit_color_texture_program->LIGHT_DIRECTION_vec3, 1, glm::value_ptr(glm::vec3(0.0f, -.5f,-1.0f)));
 	glUniform3fv(lit_color_texture_program->LIGHT_ENERGY_vec3, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 0.95f)));
 	glUseProgram(0);
 
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearColor(0.5f, 0.8f, 1.0f, 1.0f);
 	glClearDepth(1.0f); //1.0 is actually the default value to clear the depth buffer to, but FYI you can change it.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -261,12 +295,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse",
+		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse; left click drops corn",
 			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse",
+		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse; left click drops corn",
 			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
